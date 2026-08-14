@@ -550,9 +550,12 @@ const AnalyticsPro = () => {
             )}
           </div>
         </div>
-        
+      </div>
+
+      {/* Insight Cards (2-column layout) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '1.5rem', width: '100%', marginTop: '1.5rem' }}>
         {/* Barang Gak Laku (30 Hari) */}
-        <div style={{ background: 'var(--color-surface)', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', border: '1px solid var(--color-border-light)', gridColumn: '1 / -1', '@media (min-width: 1024px)': { gridColumn: 'span 1' } } as any}>
+        <div style={{ background: 'var(--color-surface)', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', border: '1px solid var(--color-border-light)' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <PackageX size={18} style={{ color: '#EF4444' }} /> Barang Gak Laku (30 Hari)
           </h3>
