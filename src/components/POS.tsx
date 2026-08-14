@@ -1,10 +1,10 @@
 import { useState, useEffect, useContext, type FormEvent, type CSSProperties } from 'react';
 import { format } from 'date-fns';
-import { ShoppingCart, Check, Trash2, Plus, Minus, Settings, Image as ImageIcon, Pencil, Tag, Search, X, ChevronUp, ChevronDown, Printer, CheckCircle, Lock } from 'lucide-react';
+import { ShoppingCart, Check, Trash2, Plus, Minus, Settings, Image as ImageIcon, Pencil, Tag, Search, X, ChevronUp, ChevronDown, Printer, CheckCircle, Lock, History } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import Receipt from './Receipt';
-import type { Product, ProductCategory, ExtraItem } from '../types';
-import { getProducts, addProduct, deleteProduct, addTransaction, updateProduct, getCategories, deductInventory, getInventory, getAddOns, saveAddOns, checkIsActiveSubscription } from '../utils/storage';
+import type { Product, ProductCategory, ExtraItem, Transaction } from '../types';
+import { getProducts, addProduct, deleteProduct, addTransaction, updateProduct, getCategories, deductInventory, getInventory, getAddOns, saveAddOns, checkIsActiveSubscription, getTransactions } from '../utils/storage';
 import { generateDynamicQRIS } from '../utils/qris';
 import { useToast } from './Toast';
 import { formatCurrencyInput } from '../utils/currencyInput';
@@ -58,6 +58,9 @@ const POS = () => {
   const [lastTransaction, setLastTransaction] = useState<any>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showQRISModal, setShowQRISModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [orderHistory, setOrderHistory] = useState<Transaction[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [dynamicQRIS, setDynamicQRIS] = useState('');
   const [qrisString, setQrisString] = useState('');
   const [telegramConfig, setTelegramConfig] = useState({ token: '', chatId: '' });
@@ -177,6 +180,20 @@ const POS = () => {
     const data = await getProducts();
     setProducts(data);
     setLoading(false);
+  };
+
+  const fetchOrderHistory = async () => {
+    setIsHistoryLoading(true);
+    try {
+      const data = await getTransactions(50, 0);
+      const sales = data.filter(t => t.type === 'income');
+      setOrderHistory(sales);
+    } catch (e: any) {
+      console.error(e);
+      showToast('error', 'Gagal', 'Gagal memuat riwayat pesanan');
+    } finally {
+      setIsHistoryLoading(false);
+    }
   };
 
   const fetchInventoryAndRecipes = async () => {
@@ -562,11 +579,16 @@ const POS = () => {
           <h1 className="page-title">Kasir (POS)</h1>
           <p className="page-subtitle">Klik produk untuk menambahkan ke keranjang</p>
         </div>
-        {isAdmin && (
-          <button className="btn btn-outline" onClick={() => { setIsMenuModalOpen(true); setMenuTab('menu'); }}>
-            <Settings size={14} /> Manajemen Menu
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <button className="btn btn-outline" onClick={() => { fetchOrderHistory(); setShowHistoryModal(true); }}>
+            <History size={14} /> Riwayat
           </button>
-        )}
+          {isAdmin && (
+            <button className="btn btn-outline" onClick={() => { setIsMenuModalOpen(true); setMenuTab('menu'); }}>
+              <Settings size={14} /> Manajemen Menu
+            </button>
+          )}
+        </div>
       </div>
 
       {!isActiveSubscription && (
@@ -1466,6 +1488,74 @@ const POS = () => {
                 <button className="btn btn-outline" onClick={() => setDeleteMenuConfirm(null)}>Batal</button>
                 <button className="btn btn-danger" onClick={() => handleDeleteMenu(deleteMenuConfirm.id, deleteMenuConfirm.name)} disabled={isDeleting}>{isDeleting ? 'Menghapus...' : 'Ya, Hapus'}</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Transaksi Berhasil Modal ── */}
+      {showHistoryModal && (
+        <div className="modal-overlay" onClick={() => setShowHistoryModal(false)}>
+          <div className="modal-content" style={{ maxWidth: 'min(600px, calc(100vw - 2rem))', height: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <History size={20} className="text-primary" />
+                Riwayat Pesanan
+              </h2>
+              <button onClick={() => setShowHistoryModal(false)} className="modal-close-btn">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="modal-body" style={{ overflowY: 'auto', padding: '1.25rem', flex: 1 }}>
+              {isHistoryLoading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
+                  <div className="loading-spinner" />
+                </div>
+              ) : orderHistory.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--color-text-secondary)' }}>
+                  <History size={48} style={{ opacity: 0.2, margin: '0 auto 1rem' }} />
+                  <p>Belum ada riwayat pesanan.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {orderHistory.map(tx => {
+                    let displayDate = 'Tanggal tidak valid';
+                    try {
+                      const txDate = tx.date;
+                      if (txDate.length === 10) {
+                        displayDate = format(new Date(txDate + 'T00:00:00'), 'dd/MM/yyyy');
+                      } else {
+                        displayDate = format(new Date(txDate), 'dd/MM/yyyy HH:mm');
+                      }
+                    } catch (e) {}
+
+                    return (
+                      <div key={tx.id} style={{
+                        padding: '1rem',
+                        borderRadius: '12px',
+                        background: 'var(--color-surface-alt)',
+                        border: '1px solid var(--color-border-light)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.5rem'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--color-text)' }}>
+                            {displayDate}
+                          </div>
+                          <div style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
+                            {formatCurrency(tx.amount)}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
+                          {tx.description}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
