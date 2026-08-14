@@ -230,6 +230,10 @@ const Finance = () => {
     return 'Rp ' + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
 
+  const currentIncome = filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+  const currentExpense = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  const currentNetProfit = currentIncome - currentExpense;
+
   return (
     <div>
       <div className="page-header">
@@ -257,6 +261,21 @@ const Finance = () => {
           <button className="btn btn-outline" onClick={handleExportCSV}><Download size={14} /> CSV</button>
           <button className="btn btn-outline" onClick={handleExportExcel}><Download size={14} /> Excel</button>
           <button className="btn btn-primary" onClick={openAddModal}><Plus size={14} /> Transaksi</button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        <div style={{ background: 'var(--color-surface)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--color-border-light)' }}>
+          <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 600 }}>Total Pemasukan</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10B981' }}>{formatCurrency(currentIncome)}</div>
+        </div>
+        <div style={{ background: 'var(--color-surface)', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--color-border-light)' }}>
+          <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 600 }}>Total Pengeluaran</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#EF4444' }}>{formatCurrency(currentExpense)}</div>
+        </div>
+        <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.05))', padding: '1.25rem', borderRadius: '12px', border: '1px solid rgba(16,185,129,0.2)' }}>
+          <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 700 }}>Laba Bersih</div>
+          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)' }}>{formatCurrency(currentNetProfit)}</div>
         </div>
       </div>
 
