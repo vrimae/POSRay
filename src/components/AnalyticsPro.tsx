@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { checkAnalyticsAccess, getTransactions, getInventory } from '../utils/storage';
+import { checkAnalyticsAccess, getTransactions, getInventory, getProducts } from '../utils/storage';
 import { supabase } from '../lib/supabase';
-import { Crown, Lock, TrendingUp, PackageOpen, ArrowDownRight, ArrowUpRight, ArrowRight, Wallet, Calendar, ChevronDown, Users } from 'lucide-react';
+import { Crown, Lock, TrendingUp, PackageOpen, ArrowDownRight, ArrowUpRight, ArrowRight, Wallet, Calendar, ChevronDown, Users, PackageX, Boxes } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import type { Transaction, InventoryItem } from '../types';
+import type { Transaction, InventoryItem, Product } from '../types';
 import { format, subDays, isAfter, startOfDay, isSameDay, startOfMonth, endOfMonth, subMonths, isSameMonth, startOfYear, endOfYear, subYears, isSameYear, parseISO, getWeekOfMonth } from 'date-fns';
 import { id } from 'date-fns/locale';
 
@@ -26,6 +26,7 @@ const AnalyticsPro = () => {
   const [isPro, setIsPro] = useState(false);
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('7days');
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   
@@ -38,12 +39,14 @@ const AnalyticsPro = () => {
         
         if (proStatus) {
           const fetchInitial = async () => {
-            const [txs, inv] = await Promise.all([
+            const [txs, inv, prods] = await Promise.all([
               getTransactions(),
-              getInventory()
+              getInventory(),
+              getProducts()
             ]);
             setAllTransactions(txs);
             setInventory(inv);
+            setProducts(prods);
           };
           
           await fetchInitial();
@@ -274,6 +277,30 @@ const AnalyticsPro = () => {
   const topCustomers = Object.entries(customerMap)
     .map(([name, orderCount]) => ({ name, orderCount }))
     .sort((a, b) => b.orderCount - a.orderCount)
+    .slice(0, 5);
+
+  // --- Unsold Products Logic (30 Days) ---
+  const thirtyDaysAgo = startOfDay(subDays(now, 30));
+  const thirtyDaysTxs = allTransactions.filter(t => isAfter(parseISO(t.date), thirtyDaysAgo));
+  const soldProducts30d = new Set<string>();
+  thirtyDaysTxs.filter(t => t.type === 'income').forEach(t => {
+    const parts = t.description.split(' - ');
+    if (parts.length > 1) {
+      const itemsStr = parts.slice(1).join(' - ');
+      const regex = /(.*?)\s*\((\d+)x\)(?:,\s*|$)/g;
+      let match;
+      while ((match = regex.exec(itemsStr)) !== null) {
+        let namePart = match[1].trim();
+        namePart = namePart.replace(/\s*\(\+[^)]+\)/g, '').replace(/\s*\(\?[^)]+\)/g, '').trim();
+        soldProducts30d.add(namePart.toLowerCase());
+      }
+    }
+  });
+  const unsoldProducts = products.filter(p => !soldProducts30d.has(p.name.toLowerCase()));
+
+  // --- Stagnant Inventory Logic ---
+  const highStockInventory = [...inventory]
+    .sort((a, b) => b.quantity - a.quantity)
     .slice(0, 5);
 
   const inventoryValue = inventory.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
@@ -519,6 +546,66 @@ const AnalyticsPro = () => {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)', fontSize: '0.9rem', padding: '2rem 0' }}>
                 Belum ada data pelanggan di periode ini.
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Barang Gak Laku (30 Hari) */}
+        <div style={{ background: 'var(--color-surface)', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', border: '1px solid var(--color-border-light)', gridColumn: '1 / -1', '@media (min-width: 1024px)': { gridColumn: 'span 1' } } as any}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <PackageX size={18} style={{ color: '#EF4444' }} /> Barang Gak Laku (30 Hari)
+          </h3>
+          <div style={{ width: '100%', maxHeight: '300px', overflowY: 'auto' }}>
+            {unsoldProducts.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {unsoldProducts.map((p, index) => (
+                  <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem', background: 'var(--color-bg)', borderRadius: '12px' }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '8px', overflow: 'hidden', flexShrink: 0, background: '#eee' }}>
+                      {p.image ? (
+                        <img src={p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}><PackageOpen size={24} /></div>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{p.name}</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{p.category}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)', fontSize: '0.9rem', padding: '2rem 0' }}>
+                Semua barang laku dalam 30 hari terakhir!
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Barang Mengendap (Stok Tinggi) */}
+        <div style={{ background: 'var(--color-surface)', padding: '1.5rem', borderRadius: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.03)', border: '1px solid var(--color-border-light)' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Boxes size={18} style={{ color: '#F59E0B' }} /> Barang Mengendap (Stok Tinggi)
+          </h3>
+          <div style={{ width: '100%', maxHeight: '300px', overflowY: 'auto' }}>
+            {highStockInventory.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {highStockInventory.map((item, index) => (
+                  <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: 'var(--color-bg)', borderRadius: '12px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{item.name}</span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>Kategori: {item.category}</span>
+                    </div>
+                    <div style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#F59E0B', padding: '0.25rem 0.75rem', borderRadius: '20px', fontWeight: 700, fontSize: '0.85rem' }}>
+                      {item.quantity} {item.unit || 'Item'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)', fontSize: '0.9rem', padding: '2rem 0' }}>
+                Belum ada data inventori.
               </div>
             )}
           </div>
