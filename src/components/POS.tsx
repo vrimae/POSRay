@@ -1525,6 +1525,8 @@ const POS = () => {
                       const txDate = tx.date;
                       if (txDate.length === 10) {
                         displayDate = format(new Date(txDate + 'T00:00:00'), 'dd/MM/yyyy');
+                      } else if (txDate.includes('T00:00:00.000Z') || txDate.includes('T00:00:00+00:00')) {
+                        displayDate = format(new Date(txDate), 'dd/MM/yyyy');
                       } else {
                         displayDate = format(new Date(txDate), 'dd/MM/yyyy HH:mm');
                       }
