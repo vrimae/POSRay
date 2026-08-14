@@ -1522,10 +1522,10 @@ const POS = () => {
                   {orderHistory.map(tx => {
                     let displayDate = 'Tanggal tidak valid';
                     try {
-                      const txDate = tx.date;
+                      const txDate = tx.created_at || tx.date;
                       if (txDate.length === 10) {
                         displayDate = format(new Date(txDate + 'T00:00:00'), 'dd/MM/yyyy');
-                      } else if (txDate.includes('T00:00:00.000Z') || txDate.includes('T00:00:00+00:00')) {
+                      } else if (txDate.includes('T00:00:00.000Z') || txDate.includes('T00:00:00+00:00') || (!tx.created_at && txDate.endsWith('Z') && txDate.length === 11)) {
                         displayDate = format(new Date(txDate), 'dd/MM/yyyy');
                       } else {
                         displayDate = format(new Date(txDate), 'dd/MM/yyyy HH:mm');

@@ -7,6 +7,7 @@ export interface Transaction {
   category: string;
   description: string;
   date: string; // ISO string
+  created_at?: string; // ISO string
 }
 
 export interface InventoryItem {

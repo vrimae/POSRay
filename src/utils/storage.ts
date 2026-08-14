@@ -185,6 +185,7 @@ export const getTransactions = async (limitCount = 100, offset = 0): Promise<Tra
       category: row.category,
       description: row.description,
       date: dateStr,
+      created_at: row.created_at,
     };
   });
 };
